@@ -168,12 +168,17 @@ async def unlock(ctx):
 async def play(ctx, *, url: str):
     if not ctx.author.voice:
         return await ctx.send("❌ Tu dois être dans un salon vocal.")
-
     try:
         voice_channel = ctx.author.voice.channel
-        vc = await voice_channel.connect()
+        if ctx.voice_client is None:
+            vc = await voice_channel.connect()
+        else:
+            vc = ctx.voice_client
+            if vc.channel != voice_channel:
+                await vc.move_to(voice_channel)
         await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
-        await ctx.send(f"🎵 Lien reçu : {url}\n\n**⚠️ Note :** La lecture réelle nécessite PyNaCl + ffmpeg sur Railway.")
+        await ctx.send(f"🎵 Lien reçu : {url}")
+        await ctx.send("⚠️ **Lecture réelle non disponible** (manque yt-dlp + ffmpeg sur Railway).")
     except Exception as e:
         await ctx.send(f"❌ Erreur : {e}")
 
