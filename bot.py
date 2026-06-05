@@ -4,6 +4,7 @@ import asyncio
 import re
 from datetime import datetime, timedelta
 import json
+import os
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
@@ -91,7 +92,7 @@ async def auto_cleanup():
                 except:
                     pass
 
-# ================= NOUVELLES COMMANDES =================
+# ================= COMMANDES =================
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def unban(ctx, user_id: int):
@@ -136,7 +137,6 @@ async def memberinfo(ctx, member: discord.Member = None):
     embed.set_thumbnail(url=member.avatar.url if member.avatar else None)
     await ctx.send(embed=embed)
 
-# Anciennes commandes (je les garde)
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def ban(ctx, member: discord.Member, *, reason="Aucune raison"):
@@ -188,5 +188,8 @@ async def ping(ctx):
     await ctx.send(f"Pong → {round(bot.latency*1000)}ms")
 
 # ================= LANCEMENT =================
-token = "MTUxMjQzNzI3NTExODUzODgzMg.GDtjz_.tn3uXBzelf46E-a3KOCL67JTlI2nYNpGVx6Yg0"
-bot.run(token)
+TOKEN = os.getenv("MTUxMjQzNzI3NTExODUzODgzMg.GDtjz_.tn3uXBzelf46E-a3KOCL67JTlI2nYNpGVx6Yg0")
+if not TOKEN:
+    print("delta is now in your PC !")
+else:
+    bot.run(TOKEN)
