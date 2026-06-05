@@ -66,7 +66,7 @@ async def help(ctx):
     embed.set_footer(text="Delta Executor v1.2")
     await ctx.send(embed=embed)
 
-# ================= AUTRES COMMANDES (tout le reste) =================
+# ================= DELTA COMMANDS =================
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def annonce(ctx, *, message):
@@ -116,6 +116,7 @@ async def nuke(ctx):
     await ctx.channel.delete()
     await new.send("**Salon nuké** 🔥")
 
+# ================= MODÉRATION =================
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def ban(ctx, member: discord.Member, *, reason="Aucune"):
@@ -130,9 +131,21 @@ async def kick(ctx, member: discord.Member, *, reason="Aucune"):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def warn(ctx, member: discord.Member, *, reason="Aucune"):
+async def warn(ctx, member: discord.Member, *, reason="Aucune raison"):
     warns[member.id].append({"reason": reason, "time": str(datetime.now())})
-    await ctx.send(f"{member} warn ({len(warns[member.id])}).")
+    
+    # Envoi du DM
+    try:
+        embed = discord.Embed(title="⚠️ Tu as reçu un Warn", color=0xff0000)
+        embed.add_field(name="Serveur", value=ctx.guild.name, inline=False)
+        embed.add_field(name="Raison", value=reason, inline=False)
+        embed.add_field(name="Nombre total de warns", value=len(warns[member.id]), inline=False)
+        embed.set_footer(text="Delta Executor")
+        await member.send(embed=embed)
+    except:
+        await ctx.send(f"{member.mention} n'a pas pu recevoir le DM (DM fermés).", delete_after=5)
+    
+    await ctx.send(f"{member} a reçu un warn ({len(warns[member.id])}).")
 
 @bot.command()
 @commands.has_permissions(manage_roles=True)
@@ -141,6 +154,7 @@ async def mute(ctx, member: discord.Member):
     await member.add_roles(role)
     await ctx.send(f"{member} muté.")
 
+# ================= AUTRES =================
 @bot.command()
 async def memberinfo(ctx, member: discord.Member = None):
     member = member or ctx.author
@@ -164,7 +178,7 @@ async def daily(ctx):
     user["daily"] = now.isoformat()
     await ctx.send("✅ +500 Delta Coins !")
 
-# ================= LANCEMENT RAILWAY =================
+# ================= LANCEMENT =================
 if __name__ == "__main__":
     token = os.getenv("METS_TON_TOKEN_ICI")
     if not token:
