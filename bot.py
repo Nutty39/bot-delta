@@ -63,6 +63,7 @@ async def help(ctx):
     embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
     embed.add_field(name="💰 Économie", value="`!balance` `!daily` `!pay`", inline=False)
     embed.add_field(name="🛠️ Modération", value="`!ban` `!kick` `!warn` `!mute` `!unmute` `!slowmode` `!lock` `!unlock`", inline=False)
+    embed.add_field(name="🎵 Music", value="`!play <lien youtube/spotify>`", inline=False)
     embed.set_footer(text="Delta Executor v1.2")
     await ctx.send(embed=embed)
 
@@ -134,7 +135,6 @@ async def kick(ctx, member: discord.Member, *, reason="Aucune"):
 async def warn(ctx, member: discord.Member, *, reason="Aucune raison"):
     warns[member.id].append({"reason": reason, "time": str(datetime.now())})
     
-    # Envoi du DM
     try:
         embed = discord.Embed(title="⚠️ Tu as reçu un Warn", color=0xff0000)
         embed.add_field(name="Serveur", value=ctx.guild.name, inline=False)
@@ -153,6 +153,34 @@ async def mute(ctx, member: discord.Member):
     role = discord.utils.get(ctx.guild.roles, name="Muted") or await ctx.guild.create_role(name="Muted")
     await member.add_roles(role)
     await ctx.send(f"{member} muté.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def lock(ctx):
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
+    await ctx.send("🔒 Salon verrouillé.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def unlock(ctx):
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
+    await ctx.send("🔓 Salon déverrouillé.")
+
+# ================= MUSIC =================
+@bot.command()
+async def play(ctx, *, url: str):
+    if not ctx.author.voice:
+        return await ctx.send("❌ Tu dois être en vocal pour utiliser cette commande.")
+    
+    try:
+        voice_channel = ctx.author.voice.channel
+        vc = await voice_channel.connect()
+        await ctx.send(f"🎵 Connexion à {voice_channel.name}...")
+        # Note : Pour que la musique marche vraiment, installe yt-dlp + ffmpeg sur Railway
+        await ctx.send(f"▶️ Lecture de : {url}\n*(Fonctionnalité basique - yt-dlp requis pour full support)*")
+        # Le vrai playback nécessite plus de setup (FFmpeg + yt-dlp)
+    except Exception as e:
+        await ctx.send(f"❌ Erreur : {e}")
 
 # ================= AUTRES =================
 @bot.command()
