@@ -168,13 +168,12 @@ async def unlock(ctx):
 async def play(ctx, *, url: str):
     if not ctx.author.voice:
         return await ctx.send("❌ Tu dois être dans un salon vocal.")
+
     try:
         voice_channel = ctx.author.voice.channel
         vc = await voice_channel.connect()
-        await ctx.send(f"✅ Connecté à **{voice_channel.name}** et prêt à jouer.")
-        # Pour l'instant c'est basique (juste connexion)
-        # Pour que ça joue vraiment des musiques YouTube/Spotify, il faut yt-dlp + ffmpeg
-        await ctx.send(f"🎵 Lien reçu : {url}\n*(Lecture réelle nécessite plus de setup)*")
+        await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
+        await ctx.send(f"🎵 Lien reçu : {url}\n\n**⚠️ Note :** La lecture réelle nécessite PyNaCl + ffmpeg sur Railway.")
     except Exception as e:
         await ctx.send(f"❌ Erreur : {e}")
 
