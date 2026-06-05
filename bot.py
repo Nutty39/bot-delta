@@ -186,8 +186,8 @@ async def memberinfo(ctx, member: discord.Member = None):
     await ctx.send(embed=embed)
 
 # ================= LANCEMENT =================
-TOKEN = os.getenv("MTUxMjQzNzI3NTExODUzODgzMg.GNEgau.0CbyRLwvmvL1DXnC1Eagd5pYsGWLJSN06a8Wi4")
-if not TOKEN:
-    print("ERREUR : TOKEN manquant dans les Variables")
-else:
-    bot.run(TOKEN)
+token = os.getenv("MTUxMjQzNzI3NTExODUzODgzMg.Go364G._69VHabSepVC5LdkJS9VB8PVJ_N_11znhjrd30")
+if not token:
+    print("ERREUR : TOKEN manquant dans les Variables Railway")
+    exit()
+bot.run(token)
