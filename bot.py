@@ -4,14 +4,19 @@ import asyncio
 import json
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-# ================= CONFIG & XP =================
 levels = {}
-tickets = {}
+warns = defaultdict(list)
+economy = defaultdict(lambda: {"balance": 100, "daily": None})
+config = {}
+join_times = defaultdict(list)
+reaction_roles = {}
+afk_users = {}
 
 def load_config():
     try:
@@ -20,154 +25,174 @@ def load_config():
     except:
         return {}
 
-def save_config(config):
+def save_config():
     with open("config.json", "w") as f:
         json.dump(config, f, indent=4)
 
 config = load_config()
 
-# ================= EVENTS =================
 @bot.event
 async def on_ready():
-    print(f"Bot lancé → {bot.user} - Tout est niqué")
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="optimiser ta merde"))
+    print(f"Bot lancé → {bot.user} - Chargé à fond")
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="tout niquer"))
     auto_cleanup.start()
+
+@bot.event
+async def on_member_join(member):
+    welcome = discord.utils.get(member.guild.text_channels, name="bienvenue")
+    if welcome:
+        await welcome.send(f"{member.mention} a rejoint.")
+
+    now = datetime.utcnow()
+    join_times[member.guild.id].append(now)
+    join_times[member.guild.id] = [t for t in join_times[member.guild.id] if now - t < timedelta(seconds=10)]
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # XP System
-    author_id = str(message.author.id)
-    if author_id not in levels:
-        levels[author_id] = {"xp": 0, "level": 1}
-    levels[author_id]["xp"] += random.randint(5, 20)
+    aid = str(message.author.id)
+    if aid not in levels:
+        levels[aid] = {"xp": 0, "level": 1}
+    levels[aid]["xp"] += random.randint(10, 40)
+    if levels[aid]["xp"] >= levels[aid]["level"] * 100:
+        levels[aid]["level"] += 1
+        levels[aid]["xp"] = 0
+        await message.channel.send(f"🎉 {message.author.mention} level **{levels[aid]['level']}** !")
 
-    if levels[author_id]["xp"] >= levels[author_id]["level"] * 150:
-        levels[author_id]["level"] += 1
-        levels[author_id]["xp"] = 0
-        await message.channel.send(f"🎉 {message.author.mention} passe au **Level {levels[author_id]['level']}** !")
+    economy[aid]["balance"] += random.randint(2, 8)
 
-    # Auto clean
-    channel_id = str(message.channel.id)
-    rules = config.get(channel_id, {})
-    deleted = False
-
-    if rules.get("delete_after"):
-        await asyncio.sleep(rules["delete_after"])
+    if str(message.channel.id) in config and config[str(message.channel.id)].get("delete_after"):
+        await asyncio.sleep(config[str(message.channel.id)]["delete_after"])
         try:
             await message.delete()
-            deleted = True
         except:
             pass
 
-    if deleted and discord.utils.get(message.guild.text_channels, name="logs-bot"):
-        await discord.utils.get(message.guild.text_channels, name="logs-bot").send(f"Supprimé dans {message.channel.mention}")
-
     await bot.process_commands(message)
 
-# ================= COMMANDES =================
+@bot.event
+async def on_raw_reaction_add(payload):
+    if str(payload.message_id) in reaction_roles:
+        guild = bot.get_guild(payload.guild_id)
+        role = guild.get_role(reaction_roles[str(payload.message_id)])
+        member = guild.get_member(payload.user_id)
+        if role and member:
+            await member.add_roles(role)
+
+# ================= NOUVELLE COMMANDE !FONCTION =================
+@bot.command()
+async def fonction(ctx):
+    embed = discord.Embed(title="🚀 TOUTES LES FONCTIONS DU BOT", description="Voici la liste complète :", color=0xff0000)
+    
+    embed.add_field(name="🔧 Général", value="`!ping` `!help` `!fonction`", inline=False)
+    embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
+    embed.add_field(name="💰 Économie", value="`!balance` `!daily` `!pay` `!shop` `!buyrole`", inline=False)
+    embed.add_field(name="🎉 Fun", value="`!giveaway` `!fake_nitro` `!ticket` `!afk` `!reactionrole`", inline=False)
+    embed.add_field(name="🛠️ Modération", value="`!ban` `!unban` `!warn` `!slowmode` `!lock` `!unlock` `!setclean`", inline=False)
+    embed.add_field(name="💥 Destruction", value="`!nuke` `!nukeall` `!webhookspam` `!raidmode`", inline=False)
+    embed.add_field(name="🔍 Autres", value="`!tokeninfo`", inline=False)
+    
+    embed.set_footer(text="Tape !fonction pour revoir cette liste")
+    await ctx.send(embed=embed)
+
+# ================= AUTRES COMMANDES (résumé) =================
 @bot.command()
 async def ping(ctx):
     await ctx.send(f"Pong → {round(bot.latency * 1000)}ms")
 
 @bot.command()
+async def help(ctx):
+    await ctx.invoke(bot.get_command('fonction'))
+
+@bot.command()
 async def memberinfo(ctx, member: discord.Member = None):
     member = member or ctx.author
-    roles = [role.mention for role in member.roles if role.name != "@everyone"]
-    embed = discord.Embed(title=f"Infos complètes → {member}", color=0xff0000)
+    roles = [r.mention for r in member.roles if r.name != "@everyone"]
+    embed = discord.Embed(title=str(member), color=0xff0000)
     embed.add_field(name="ID", value=member.id)
-    embed.add_field(name="Pseudo", value=str(member))
-    embed.add_field(name="Surnom", value=member.nick or "Aucun")
-    embed.add_field(name="Rejoint le", value=member.joined_at.strftime("%d/%m/%Y %H:%M") if member.joined_at else "Inconnu")
-    embed.add_field(name="Créé le", value=member.created_at.strftime("%d/%m/%Y"))
-    embed.add_field(name="Rôles", value=", ".join(roles) if roles else "Aucun", inline=False)
-    embed.add_field(name="Level", value=levels.get(str(member.id), {"level": 1})["level"])
+    embed.add_field(name="Level", value=levels.get(str(member.id), {"level":1})["level"])
+    embed.add_field(name="Argent", value=economy[str(member.id)]["balance"])
+    embed.add_field(name="Rôles", value=", ".join(roles)[:500] or "Aucun")
     embed.set_thumbnail(url=member.display_avatar.url)
     await ctx.send(embed=embed)
 
 @bot.command()
 async def avatar(ctx, member: discord.Member = None):
     member = member or ctx.author
-    embed = discord.Embed(title=f"Avatar de {member}", color=0xff0000)
-    embed.set_image(url=member.display_avatar.url)
-    await ctx.send(embed=embed)
+    await ctx.send(embed=discord.Embed(title=f"Avatar {member}", color=0xff0000).set_image(url=member.display_avatar.url))
 
 @bot.command()
 async def level(ctx, member: discord.Member = None):
     member = member or ctx.author
-    data = levels.get(str(member.id), {"xp": 0, "level": 1})
-    await ctx.send(f"{member.mention} → **Level {data['level']}** | XP: {data['xp']}")
+    data = levels.get(str(member.id), {"xp":0,"level":1})
+    await ctx.send(f"{member.mention} → Level **{data['level']}**")
 
-# ================= GIVEAWAY =================
 @bot.command()
-@commands.has_permissions(administrator=True)
-async def giveaway(ctx, duration: int, *, prize):
-    embed = discord.Embed(title="🎉 GIVEAWAY 🎉", description=f"**Prix :** {prize}\n**Durée :** {duration} secondes", color=0x00ff00)
-    embed.set_footer(text="Réagis avec 🎉 pour participer !")
-    msg = await ctx.send(embed=embed)
-    await msg.add_reaction("🎉")
-    await asyncio.sleep(duration)
-    msg = await ctx.channel.fetch_message(msg.id)
-    reaction = discord.utils.get(msg.reactions, emoji="🎉")
-    users = [user async for user in reaction.users() if not user.bot]
-    if users:
-        winner = random.choice(users)
-        await ctx.send(f"🎉 **Gagnant :** {winner.mention} → **{prize}** !")
-    else:
-        await ctx.send("Personne n'a participé...")
+async def leaderboard(ctx):
+    top = sorted(levels.items(), key=lambda x: x[1]["level"], reverse=True)[:10]
+    msg = "**TOP 10 LEVELS**\n"
+    for i, (uid, d) in enumerate(top, 1):
+        u = bot.get_user(int(uid))
+        msg += f"{i}. {u.mention if u else uid} → Level {d['level']}\n"
+    await ctx.send(msg)
 
-# ================= TICKET =================
 @bot.command()
-async def ticket(ctx):
-    category = discord.utils.get(ctx.guild.categories, name="Tickets")
-    if not category:
-        category = await ctx.guild.create_category("Tickets")
-    ticket_channel = await ctx.guild.create_text_channel(f"ticket-{ctx.author.name}", category=category)
-    await ticket_channel.set_permissions(ctx.author, read_messages=True, send_messages=True)
-    await ticket_channel.set_permissions(ctx.guild.default_role, read_messages=False)
-    await ticket_channel.send(f"{ctx.author.mention} bienvenue dans ton ticket. Un admin va arriver.")
-    await ctx.send(f"Ticket créé → {ticket_channel.mention}")
+async def balance(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    await ctx.send(f"{member.mention} → **{economy[str(member.id)]['balance']} coins**")
 
-# ================= MUSIQUE (simple) =================
 @bot.command()
-@commands.has_permissions(administrator=True)  # ou retire cette ligne si tu veux que tout le monde l'utilise
-async def play(ctx, url: str):
-    if not ctx.author.voice:
-        await ctx.send("Rejoins un vocal d'abord fils de pute")
+async def daily(ctx):
+    aid = str(ctx.author.id)
+    now = datetime.utcnow()
+    if economy[aid]["daily"] and (now - economy[aid]["daily"]).total_seconds() < 86400:
+        await ctx.send("Daily déjà pris.")
         return
-    channel = ctx.author.voice.channel
-    voice = await channel.connect()
-    await ctx.send(f"Je joue : {url} (version basique, peut bugger)")
-    # Note : Pour une vraie musique, il faut yt-dlp + FFmpeg (compliqué sur Railway)
+    economy[aid]["balance"] += 1000
+    economy[aid]["daily"] = now
+    await ctx.send("**+1000 coins** pris !")
 
-# ================= NUKE =================
+@bot.command()
+async def fake_nitro(ctx):
+    code = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=19))
+    await ctx.send(f"https://discord.gift/{code}")
+
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def nuke(ctx, channel: discord.TextChannel = None):
-    channel = channel or ctx.channel
-    new_channel = await channel.clone()
-    await channel.delete()
-    await new_channel.send("**Salon nuke effectué avec succès.**")
-    await ctx.send("Nuke terminé.")
+async def webhookspam(ctx, amount: int = 10, *, text="SPAM"):
+    for _ in range(amount):
+        try:
+            wh = await ctx.channel.create_webhook(name="spam")
+            await wh.send(text * 5)
+            await wh.delete()
+        except:
+            pass
+    await ctx.send("Webhook spam terminé.")
 
-# ================= AUTRES =================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def nukeall(ctx):
+    for ch in ctx.guild.channels[:]:
+        try:
+            await ch.delete()
+        except:
+            pass
+    await ctx.guild.create_text_channel("nuke-fini")
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setclean(ctx, channel: discord.TextChannel, seconds: int):
-    channel_id = str(channel.id)
-    if channel_id not in config:
-        config[channel_id] = {}
-    config[channel_id]["delete_after"] = seconds
-    save_config(config)
-    await ctx.send(f"Nettoyage auto activé sur {channel.mention} ({seconds}s)")
+    config[str(channel.id)] = {"delete_after": seconds}
+    save_config()
+    await ctx.send(f"Auto clean activé ({seconds}s) sur {channel.mention}")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="Aucune raison"):
+async def ban(ctx, member: discord.Member, *, reason="Aucune"):
     await member.ban(reason=reason)
-    await ctx.send(f"{member} s'est fait ban.")
+    await ctx.send(f"{member} ban.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -176,9 +201,23 @@ async def unban(ctx, user_id: int):
     await ctx.guild.unban(user)
     await ctx.send(f"{user} unbanni.")
 
-# ================= LANCEMENT =================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def giveaway(ctx, duration: int, *, prize):
+    embed = discord.Embed(title="🎉 GIVEAWAY", description=prize, color=0x00ff00)
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("🎉")
+    await asyncio.sleep(duration)
+    msg = await ctx.channel.fetch_message(msg.id)
+    users = [u async for u in msg.reactions[0].users() if not u.bot]
+    if users:
+        await ctx.send(f"**Gagnant :** {random.choice(users).mention} → {prize}")
+    else:
+        await ctx.send("Pas de gagnant.")
+
+# Lancement
 token = os.getenv("TOKEN")
 if not token:
-    print("ERREUR : TOKEN manquant dans les Variables")
+    print("TOKEN MANQUANT")
 else:
     bot.run(token)
