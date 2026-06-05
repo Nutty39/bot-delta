@@ -160,8 +160,6 @@ async def unlock(ctx):
     await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
     await ctx.send("🔓 Salon déverrouillé.")
 
-# ================= MUSIC =================
-# ================= MUSIC (Spotify + YouTube - Anti-Bot) =================
 # ================= MUSIC (Recherche par Titre) =================
 import yt_dlp
 
@@ -174,12 +172,11 @@ async def play(ctx, *, search: str):
         voice_channel = ctx.author.voice.channel
 
         if ctx.voice_client is None:
-            vc = await voice_channel.connect()
+            await voice_channel.connect()
             await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
         else:
-            vc = ctx.voice_client
-            if vc.channel != voice_channel:
-                await vc.move_to(voice_channel)
+            if ctx.voice_client.channel != voice_channel:
+                await ctx.voice_client.move_to(voice_channel)
 
         await ctx.send(f"🔍 Recherche : **{search}**")
 
@@ -187,7 +184,7 @@ async def play(ctx, *, search: str):
             'format': 'bestaudio/best',
             'noplaylist': True,
             'quiet': True,
-            'default_search': 'ytsearch',   # Recherche automatique sur YouTube
+            'default_search': 'ytsearch5',   # Recherche plus légère
         }
 
         FFMPEG_OPTIONS = {
@@ -197,25 +194,23 @@ async def play(ctx, *, search: str):
 
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
             info = ydl.extract_info(search, download=False)
-            if 'entries' in info:  # Si c'est une playlist
+            if 'entries' in info:
                 info = info['entries'][0]
             audio_url = info['url']
             title = info.get('title', search)
 
-        vc.play(discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS))
-        await ctx.send(f"▶️ **Lecture :** {title}")
+        ctx.voice_client.play(discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS))
+        await ctx.send(f"▶️ **En lecture :** {title}")
 
     except Exception as e:
-        await ctx.send(f"❌ Erreur : Impossible de trouver ou lire **{search}**\n{str(e)[:300]}")
+        await ctx.send(f"❌ Impossible de lire **{search}**.\nEssaie un titre plus court et connu (ex: `!play Timbal Topic`).")
 
-# Commandes utiles
+# Commandes bonus
 @bot.command()
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        await ctx.send("⏹️ Déconnecté du vocal.")
-    else:
-        await ctx.send("Je ne suis pas en vocal.")
+        await ctx.send("⏹️ Déconnecté.")
 
 @bot.command()
 async def pause(ctx):
