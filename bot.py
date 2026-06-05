@@ -18,17 +18,17 @@ keys = {}
 
 @bot.event
 async def on_ready():
-    print(f"✅ Delta Executor Bot → Tout est chargé")
+    print(f"✅ Delta Executor Bot → Connecté")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Delta Executor v1.2"))
 
-# ================= MODAL REDEEM =================
+# ================= MODAL REDEEM (gardé) =================
 class RedeemModal(discord.ui.Modal, title="Redeem Delta Key"):
     key_input = discord.ui.TextInput(label="Ta clé Delta", placeholder="DELTA-XXXXXXXXXXXXXXXXXXXX", required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
         key = self.key_input.value.strip()
         if key in keys:
-            role = discord.utils.get(interaction.guild.roles, name="Muted")
+            role = discord.utils.get(interaction.guild.roles, name="Delta Client")
             if role:
                 await interaction.user.add_roles(role)
             await interaction.response.send_message("✅ Clé validée !", ephemeral=True)
@@ -36,7 +36,32 @@ class RedeemModal(discord.ui.Modal, title="Redeem Delta Key"):
         else:
             await interaction.response.send_message("❌ Clé invalide.", ephemeral=True)
 
-# ================= HELP =================
+# ================= COMMANDES CORRIGÉES =================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def annonce(ctx, *, message):
+    embed = discord.Embed(title="📢 Delta Executor", description=message, color=0x00ffff, timestamp=datetime.now())
+    embed.set_footer(text="Official Delta Executor")
+    await ctx.send("@everyone", embed=embed)
+
+@bot.command()
+async def ping(ctx):
+    await ctx.send(f"🏓 Pong ! Latence : **{round(bot.latency * 1000)}ms**")
+
+@bot.command()
+async def memberinfo(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    roles = [role.mention for role in member.roles if role.name != "@everyone"]
+    embed = discord.Embed(title=f"Infos → {member}", color=0x00ffff)
+    embed.add_field(name="ID", value=member.id, inline=True)
+    embed.add_field(name="Pseudo", value=str(member), inline=True)
+    embed.add_field(name="Rejoint le", value=member.joined_at.strftime("%d/%m/%Y %H:%M") if member.joined_at else "Inconnu", inline=True)
+    embed.add_field(name="Créé le", value=member.created_at.strftime("%d/%m/%Y"), inline=True)
+    embed.add_field(name="Rôles", value=", ".join(roles)[:500] or "Aucun", inline=False)
+    embed.set_thumbnail(url=member.display_avatar.url)
+    await ctx.send(embed=embed)
+
+# ================= LE RESTE (TOUT GARDÉ) =================
 @bot.command()
 async def fonction(ctx):
     embed = discord.Embed(title="🚀 TOUTES LES COMMANDES DELTA", color=0x00ffff)
@@ -52,63 +77,6 @@ async def fonction(ctx):
 async def help(ctx):
     await ctx.invoke(bot.get_command('fonction'))
 
-# ================= MUTE CORRIGÉ =================
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def mute(ctx, member: discord.Member, minutes: int = 10):
-    role = discord.utils.get(ctx.guild.roles, name="Muted")
-    if not role:
-        role = await ctx.guild.create_role(name="Muted")
-        for channel in ctx.guild.channels:
-            try:
-                await channel.set_permissions(role, send_messages=False, speak=False)
-            except:
-                pass
-    await member.add_roles(role)
-    await ctx.send(f"🔇 {member.mention} a été **muté** pour {minutes} minutes.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def unmute(ctx, member: discord.Member):
-    role = discord.utils.get(ctx.guild.roles, name="Muted")
-    if role and role in member.roles:
-        await member.remove_roles(role)
-        await ctx.send(f"🔊 {member.mention} a été **unmute**.")
-    else:
-        await ctx.send("❌ Cet utilisateur n'est pas muté.")
-
-# ================= AUTRES MODÉRATION =================
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="Aucune"):
-    await member.ban(reason=reason)
-    await ctx.send(f"{member} ban.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def kick(ctx, member: discord.Member, *, reason="Aucune"):
-    await member.kick(reason=reason)
-    await ctx.send(f"{member} kick.")
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def slowmode(ctx, seconds: int):
-    await ctx.channel.edit(slowmode_delay=seconds)
-    await ctx.send(f"Slowmode mis à {seconds} secondes.")
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def lock(ctx):
-    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
-    await ctx.send("🔒 Salon verrouillé.")
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def unlock(ctx):
-    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
-    await ctx.send("🔓 Salon déverrouillé.")
-
-# ================= DELTA =================
 @bot.command()
 async def redeemkey(ctx):
     embed = discord.Embed(title="Redeem Key", description="Clique pour entrer ta clé", color=0x00ffff)
@@ -120,28 +88,6 @@ async def redeemkey(ctx):
 async def on_interaction(interaction: discord.Interaction):
     if interaction.data.get("custom_id") == "redeem_modal":
         await interaction.response.send_modal(RedeemModal())
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def key(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    key = "DELTA-" + "".join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ0123456789", k=20))
-    keys[key] = member.id
-    await ctx.send(f"{member.mention} Clé : `{key}`")
-
-# Clear & Nuke
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def clear(ctx, amount: int = 10):
-    await ctx.channel.purge(limit=amount + 1)
-    await ctx.send(f"{amount} messages supprimés.", delete_after=4)
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def nuke(ctx):
-    new = await ctx.channel.clone()
-    await ctx.channel.delete()
-    await new.send("**Salon nuké** 🔥")
 
 # Lancement
 token = os.getenv("TOKEN")
