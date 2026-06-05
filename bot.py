@@ -10,26 +10,26 @@ from collections import defaultdict
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-# DATA
+# ================= DATA =================
 levels = {}
 economy = defaultdict(lambda: {"balance": 100, "daily": None})
 keys = {}
 
 @bot.event
 async def on_ready():
-    print(f"Delta Executor Bot → Connecté et corrigé")
+    print(f"✅ Delta Executor Bot → Connecté et corrigé")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Delta Executor v1.2"))
 
-# ================= HELP (complet) =================
+# ================= HELP =================
 @bot.command()
 async def fonction(ctx):
     embed = discord.Embed(title="🚀 TOUTES LES COMMANDES DELTA", color=0x00ffff)
-    embed.add_field(name="📢 Delta", value="`!annonce` `!key` `!redeemkey` `!tokeninfo` `!status` `!delta` `!scripts` `!changelog` `!buy`", inline=False)
+    embed.add_field(name="📢 Delta", value="`!annonce` `!key` `!redeem` `!tokeninfo` `!status` `!delta` `!scripts` `!changelog`", inline=False)
     embed.add_field(name="🧹 Clear", value="`!clear <nombre>` `!clearall <nombre>`", inline=False)
     embed.add_field(name="🔥 Nuke", value="`!nuke` `!nukeall`", inline=False)
-    embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
-    embed.add_field(name="💰 Économie", value="`!balance` `!daily` `!pay`", inline=False)
-    embed.add_field(name="Modération", value="`!ban` `!kick` `!mute` `!unmute`", inline=False)
+    embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level`", inline=False)
+    embed.add_field(name="💰 Économie", value="`!balance` `!daily`", inline=False)
+    embed.add_field(name="🛠️ Modération", value="`!ban` `!kick` `!mute`", inline=False)
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -52,10 +52,6 @@ async def key(ctx, member: discord.Member = None):
     await ctx.send(f"{member.mention} Clé générée :\n`{key}`")
 
 @bot.command()
-async def redeemkey(ctx):
-    await ctx.send("**Envoie ta clé avec :** `!redeem TA_CLÉ_ICI`")
-
-@bot.command()
 async def redeem(ctx, key: str):
     if key in keys:
         role = discord.utils.get(ctx.guild.roles, name="Delta Client")
@@ -67,12 +63,11 @@ async def redeem(ctx, key: str):
         await ctx.send("❌ Clé invalide.")
 
 @bot.command()
-async def tokeninfo(ctx):
-    await ctx.send("**Colle ton token après la commande :** `!tokeninfo MT...`")
-
-@bot.command()
-async def tokeninfo(ctx, *, token: str):
-    await ctx.send("🔍 Vérification...\n✅ Token semble valide (simulation).")
+async def tokeninfo(ctx, *, token: str = None):
+    if not token:
+        await ctx.send("**Utilisation :** `!tokeninfo MT...`")
+        return
+    await ctx.send("🔍 Vérification du token...\n✅ Token semble **valide** (simulation).")
 
 @bot.command()
 async def status(ctx):
@@ -89,7 +84,7 @@ async def delta(ctx):
 
 @bot.command()
 async def scripts(ctx):
-    await ctx.send("**Scripts disponibles :** Infinite Yield, Fly, God Mode, Aimbot, ESP, Speed, Auto Farm...")
+    await ctx.send("**Scripts disponibles :** Infinite Yield, Fly Script, God Mode, Aimbot, ESP, Speed, Auto Farm...")
 
 # ================= BASIQUES =================
 @bot.command()
@@ -103,27 +98,16 @@ async def clear(ctx, amount: int = 10):
 async def nuke(ctx):
     new = await ctx.channel.clone()
     await ctx.channel.delete()
-    await new.send("**Salon nuké**")
+    await new.send("**Salon nuké par Delta Executor** 🔥")
 
 @bot.command()
 async def avatar(ctx, member: discord.Member = None):
     member = member or ctx.author
     await ctx.send(embed=discord.Embed(title=f"Avatar de {member}", color=0x00ffff).set_image(url=member.display_avatar.url))
 
-@bot.command()
-async def balance(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    await ctx.send(f"{member.mention} a **{economy[str(member.id)]['balance']} coins**.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="Aucune"):
-    await member.ban(reason=reason)
-    await ctx.send(f"{member} a été ban.")
-
 # Lancement
 token = os.getenv("TOKEN")
 if not token:
-    print("ERREUR : Mets ton token dans les Secrets")
+    print("❌ TOKEN MANQUANT DANS LES SECRETS")
 else:
     bot.run(token)
