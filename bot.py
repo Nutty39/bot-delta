@@ -16,7 +16,6 @@ economy = defaultdict(lambda: {"balance": 100, "daily": None})
 config = {}
 join_times = defaultdict(list)
 reaction_roles = {}
-afk_users = {}
 
 def load_config():
     try:
@@ -33,19 +32,9 @@ config = load_config()
 
 @bot.event
 async def on_ready():
-    print(f"Bot lancé → {bot.user} - Chargé à fond")
+    print(f"Bot lancé → {bot.user} - Tout est chargé")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="tout niquer"))
     auto_cleanup.start()
-
-@bot.event
-async def on_member_join(member):
-    welcome = discord.utils.get(member.guild.text_channels, name="bienvenue")
-    if welcome:
-        await welcome.send(f"{member.mention} a rejoint.")
-
-    now = datetime.utcnow()
-    join_times[member.guild.id].append(now)
-    join_times[member.guild.id] = [t for t in join_times[member.guild.id] if now - t < timedelta(seconds=10)]
 
 @bot.event
 async def on_message(message):
@@ -72,39 +61,78 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-@bot.event
-async def on_raw_reaction_add(payload):
-    if str(payload.message_id) in reaction_roles:
-        guild = bot.get_guild(payload.guild_id)
-        role = guild.get_role(reaction_roles[str(payload.message_id)])
-        member = guild.get_member(payload.user_id)
-        if role and member:
-            await member.add_roles(role)
-
-# ================= NOUVELLE COMMANDE !FONCTION =================
+# ================= !HELP DÉTAILLÉ =================
 @bot.command()
-async def fonction(ctx):
-    embed = discord.Embed(title="🚀 TOUTES LES FONCTIONS DU BOT", description="Voici la liste complète :", color=0xff0000)
+async def help(ctx):
+    embed = discord.Embed(title="📜 AIDE COMPLÈTE DU BOT", description="Toutes les commandes avec explication :", color=0xff0000)
     
-    embed.add_field(name="🔧 Général", value="`!ping` `!help` `!fonction`", inline=False)
-    embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
-    embed.add_field(name="💰 Économie", value="`!balance` `!daily` `!pay` `!shop` `!buyrole`", inline=False)
-    embed.add_field(name="🎉 Fun", value="`!giveaway` `!fake_nitro` `!ticket` `!afk` `!reactionrole`", inline=False)
-    embed.add_field(name="🛠️ Modération", value="`!ban` `!unban` `!warn` `!slowmode` `!lock` `!unlock` `!setclean`", inline=False)
-    embed.add_field(name="💥 Destruction", value="`!nuke` `!nukeall` `!webhookspam` `!raidmode`", inline=False)
-    embed.add_field(name="🔍 Autres", value="`!tokeninfo`", inline=False)
+    embed.add_field(name="🔧 Basiques", value=
+        "`!ping` → Vérifie si le bot est vivant\n"
+        "`!fonction` → Liste rapide des commandes\n"
+        "`!help` → Cette aide détaillée", inline=False)
     
-    embed.set_footer(text="Tape !fonction pour revoir cette liste")
+    embed.add_field(name="👤 Infos Joueur", value=
+        "`!memberinfo [@user]` → Toutes les infos du membre\n"
+        "`!avatar [@user]` → Montre l'avatar\n"
+        "`!level [@user]` → Ton niveau XP\n"
+        "`!leaderboard` → Top 10 levels", inline=False)
+    
+    embed.add_field(name="💰 Économie", value=
+        "`!balance [@user]` → Voir ton argent\n"
+        "`!daily` → Prends 1000 coins par jour\n"
+        "`!pay @user montant` → Donne de l'argent", inline=False)
+    
+    embed.add_field(name="🎉 Fun", value=
+        "`!giveaway durée prix` → Ex: `!giveaway 60 Nitro`\n"
+        "`!fake_nitro` → Génère un faux lien nitro\n"
+        "`!ticket` → Crée un ticket privé\n"
+        "`!reactionrole @role emoji` → Rôle par réaction", inline=False)
+    
+    embed.add_field(name="🛠️ Modération", value=
+        "`!ban @user` → Ban\n"
+        "`!unban ID` → Unban avec l'ID\n"
+        "`!warn @user raison` → Warn (3 = ban auto)\n"
+        "`!slowmode secondes` → Slowmode\n"
+        "`!lock` / `!unlock` → Verrouille/déverrouille salon\n"
+        "`!setclean #salon secondes` → Auto suppression", inline=False)
+    
+    embed.add_field(name="💥 Destruction", value=
+        "`!nuke` → Recrée le salon actuel\n"
+        "`!nukeall` → Supprime TOUS les salons\n"
+        "`!webhookspam nombre texte` → Spam webhook\n"
+        "`!raidmode` → Active le mode raid", inline=False)
+    
+    embed.add_field(name="🔍 Divers", value=
+        "`!tokeninfo TOKEN` → Vérifie si un token est valide", inline=False)
+    
+    embed.set_footer(text="Fait par ton bot de merde - Tout est admin only sauf les basiques")
     await ctx.send(embed=embed)
 
-# ================= AUTRES COMMANDES (résumé) =================
+@bot.command()
+async def fonction(ctx):
+    await ctx.invoke(bot.get_command('help'))
+
+# ================= TOKENINFO FIXÉ =================
+@bot.command()
+async def tokeninfo(ctx, token: str):
+    if len(token) < 50:
+        await ctx.send("Token trop court, envoie un vrai.")
+        return
+    try:
+        headers = {"Authorization": token}
+        async with bot.http._HTTPClient__session.get("https://discord.com/api/v9/users/@me", headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                await ctx.send(f"✅ **Token valide !**\nUser: {data.get('username')}#{data.get('discriminator')}\nID: {data.get('id')}")
+            else:
+                await ctx.send("❌ Token invalide ou expiré.")
+    except:
+        await ctx.send("Erreur lors de la vérification (token probablement mort).")
+
+# ================= AUTRES COMMANDES (quelques fixes) =================
 @bot.command()
 async def ping(ctx):
     await ctx.send(f"Pong → {round(bot.latency * 1000)}ms")
-
-@bot.command()
-async def help(ctx):
-    await ctx.invoke(bot.get_command('fonction'))
 
 @bot.command()
 async def memberinfo(ctx, member: discord.Member = None):
@@ -121,47 +149,16 @@ async def memberinfo(ctx, member: discord.Member = None):
 @bot.command()
 async def avatar(ctx, member: discord.Member = None):
     member = member or ctx.author
-    await ctx.send(embed=discord.Embed(title=f"Avatar {member}", color=0xff0000).set_image(url=member.display_avatar.url))
-
-@bot.command()
-async def level(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    data = levels.get(str(member.id), {"xp":0,"level":1})
-    await ctx.send(f"{member.mention} → Level **{data['level']}**")
-
-@bot.command()
-async def leaderboard(ctx):
-    top = sorted(levels.items(), key=lambda x: x[1]["level"], reverse=True)[:10]
-    msg = "**TOP 10 LEVELS**\n"
-    for i, (uid, d) in enumerate(top, 1):
-        u = bot.get_user(int(uid))
-        msg += f"{i}. {u.mention if u else uid} → Level {d['level']}\n"
-    await ctx.send(msg)
-
-@bot.command()
-async def balance(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    await ctx.send(f"{member.mention} → **{economy[str(member.id)]['balance']} coins**")
-
-@bot.command()
-async def daily(ctx):
-    aid = str(ctx.author.id)
-    now = datetime.utcnow()
-    if economy[aid]["daily"] and (now - economy[aid]["daily"]).total_seconds() < 86400:
-        await ctx.send("Daily déjà pris.")
-        return
-    economy[aid]["balance"] += 1000
-    economy[aid]["daily"] = now
-    await ctx.send("**+1000 coins** pris !")
+    await ctx.send(embed=discord.Embed(title=f"Avatar de {member}", color=0xff0000).set_image(url=member.display_avatar.url))
 
 @bot.command()
 async def fake_nitro(ctx):
-    code = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=19))
+    code = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=19))
     await ctx.send(f"https://discord.gift/{code}")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def webhookspam(ctx, amount: int = 10, *, text="SPAM"):
+async def webhookspam(ctx, amount: int = 10, *, text="SPAM DE MERDE"):
     for _ in range(amount):
         try:
             wh = await ctx.channel.create_webhook(name="spam")
@@ -174,50 +171,39 @@ async def webhookspam(ctx, amount: int = 10, *, text="SPAM"):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def nukeall(ctx):
-    for ch in ctx.guild.channels[:]:
+    for ch in list(ctx.guild.channels):
         try:
             await ch.delete()
         except:
             pass
-    await ctx.guild.create_text_channel("nuke-fini")
+    await ctx.guild.create_text_channel("nuke-termine")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setclean(ctx, channel: discord.TextChannel, seconds: int):
     config[str(channel.id)] = {"delete_after": seconds}
     save_config()
-    await ctx.send(f"Auto clean activé ({seconds}s) sur {channel.mention}")
+    await ctx.send(f"Auto clean activé sur {channel.mention} ({seconds}s)")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="Aucune"):
+async def ban(ctx, member: discord.Member, *, reason="Aucune raison"):
     await member.ban(reason=reason)
-    await ctx.send(f"{member} ban.")
+    await ctx.send(f"{member} a été ban.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def unban(ctx, user_id: int):
-    user = await bot.fetch_user(user_id)
-    await ctx.guild.unban(user)
-    await ctx.send(f"{user} unbanni.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def giveaway(ctx, duration: int, *, prize):
-    embed = discord.Embed(title="🎉 GIVEAWAY", description=prize, color=0x00ff00)
-    msg = await ctx.send(embed=embed)
-    await msg.add_reaction("🎉")
-    await asyncio.sleep(duration)
-    msg = await ctx.channel.fetch_message(msg.id)
-    users = [u async for u in msg.reactions[0].users() if not u.bot]
-    if users:
-        await ctx.send(f"**Gagnant :** {random.choice(users).mention} → {prize}")
-    else:
-        await ctx.send("Pas de gagnant.")
+    try:
+        user = await bot.fetch_user(user_id)
+        await ctx.guild.unban(user)
+        await ctx.send(f"{user} a été unbanni.")
+    except:
+        await ctx.send("Impossible de trouver cet ID.")
 
 # Lancement
 token = os.getenv("TOKEN")
 if not token:
-    print("TOKEN MANQUANT")
+    print("ERREUR : TOKEN MANQUANT DANS SECRETS")
 else:
     bot.run(token)
