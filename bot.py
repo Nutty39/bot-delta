@@ -171,7 +171,6 @@ async def play(ctx, *, url: str):
     try:
         voice_channel = ctx.author.voice.channel
 
-        # Connexion / déplacement
         if ctx.voice_client is None:
             vc = await voice_channel.connect()
             await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
@@ -180,7 +179,7 @@ async def play(ctx, *, url: str):
             if vc.channel != voice_channel:
                 await vc.move_to(voice_channel)
 
-        await ctx.send(f"🔍 Recherche du lien Spotify/YouTube...")
+        await ctx.send("🔍 Recherche du titre...")
 
         # Options optimisées pour Spotify
         YDL_OPTIONS = {
@@ -188,6 +187,7 @@ async def play(ctx, *, url: str):
             'noplaylist': True,
             'quiet': True,
             'no_warnings': True,
+            'default_search': 'ytsearch',   # Si c'est Spotify, il cherche sur YouTube
         }
 
         FFMPEG_OPTIONS = {
@@ -201,10 +201,35 @@ async def play(ctx, *, url: str):
             title = info.get('title', url)
 
         vc.play(discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS))
-        await ctx.send(f"▶️ **Lecture en cours :** {title}")
+        await ctx.send(f"▶️ **Lecture :** {title}")
 
     except Exception as e:
-        await ctx.send(f"❌ Erreur : {str(e)[:500]}\nEssaie avec un lien YouTube direct si possible.")
+        error = str(e).lower()
+        if "drm" in error or "protected" in error:
+            await ctx.send("❌ Spotify bloque ce titre (DRM).\nEssaie un autre titre ou un lien YouTube.")
+        else:
+            await ctx.send(f"❌ Erreur : {str(e)[:300]}")
+
+# Commandes utiles
+@bot.command()
+async def stop(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("⏹️ Déconnecté.")
+    else:
+        await ctx.send("Pas en vocal.")
+
+@bot.command()
+async def pause(ctx):
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.pause()
+        await ctx.send("⏸️ Pause.")
+
+@bot.command()
+async def resume(ctx):
+    if ctx.voice_client and ctx.voice_client.is_paused():
+        ctx.voice_client.resume()
+        await ctx.send("▶️ Reprise.")
 # ================= AUTRES =================
 @bot.command()
 async def memberinfo(ctx, member: discord.Member = None):
