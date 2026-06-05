@@ -60,9 +60,28 @@ async def help(ctx):
     embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
     embed.add_field(name="💰 Économie", value="`!balance` `!daily` `!pay`", inline=False)
     embed.add_field(name="🛠️ Modération", value="`!ban` `!kick` `!warn` `!mute` `!unmute` `!slowmode` `!lock` `!unlock`", inline=False)
-    embed.add_field(name="🎵 Music", value="`!play <lien youtube/spotify>`", inline=False)
+    embed.add_field(name="🎵 Music", value="`!play `", inline=False)
+    embed.add_field(name="🔧 Utilitaires", value="`!say` `!dm` `!ping`", inline=False)
     embed.set_footer(text="Delta Executor v1.2")
     await ctx.send(embed=embed)
+
+# ================= NOUVELLES COMMANDES =================
+@bot.command()
+async def ping(ctx):
+    await ctx.send(f"Pong enculé ! Latence : **{round(bot.latency * 1000)}ms**")
+
+@bot.command()
+async def say(ctx, *, message: str):
+    await ctx.message.delete()
+    await ctx.send(message)
+
+@bot.command()
+async def dm(ctx, member: discord.Member, *, message: str):
+    try:
+        await member.send(f"{ctx.author} t'a envoyé : **{message}**")
+        await ctx.send(f"✅ Message envoyé en DM à {member.mention}")
+    except:
+        await ctx.send("❌ Impossible d'envoyer le DM (l'utilisateur a ses DM fermés).")
 
 # ================= DELTA COMMANDS =================
 @bot.command()
@@ -91,6 +110,11 @@ async def status(ctx):
     embed = discord.Embed(title="Delta Executor Status", color=0x00ff00)
     embed.add_field(name="Version", value="1.2", inline=True)
     embed.add_field(name="Statut", value="✅ Undetected", inline=True)
+    embed.add_field(name="Latence", value=f"{round(bot.latency * 1000)}ms", inline=True)
+    embed.add_field(name="Serveurs", value=len(bot.guilds), inline=True)
+    embed.add_field(name="Utilisateurs", value=len(set(bot.get_all_members())), inline=True)
+    embed.add_field(name="En ligne depuis", value="Maintenant", inline=True)
+    embed.set_footer(text="Delta Executor v1.2")
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -136,9 +160,10 @@ async def warn(ctx, member: discord.Member, *, reason="Aucune raison"):
         embed.add_field(name="Serveur", value=ctx.guild.name, inline=False)
         embed.add_field(name="Raison", value=reason, inline=False)
         embed.add_field(name="Nombre total de warns", value=len(warns[member.id]), inline=False)
+        embed.set_footer(text="Delta Executor")
         await member.send(embed=embed)
     except:
-        pass
+        await ctx.send(f"{member.mention} n'a pas pu recevoir le DM (DM fermés).", delete_after=5)
     await ctx.send(f"{member} a reçu un warn ({len(warns[member.id])}).")
 
 @bot.command()
@@ -160,105 +185,6 @@ async def unlock(ctx):
     await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
     await ctx.send("🔓 Salon déverrouillé.")
 
-# ================= MUSIC (Recherche par Titre) =================
-import yt_dlp
-
-queue = {}
-
-@bot.command()
-async def play(ctx, *, search: str):
-    if not ctx.author.voice:
-        return await ctx.send("❌ Tu dois être dans un salon vocal.")
-
-    guild_id = ctx.guild.id
-    if guild_id not in queue:
-        queue[guild_id] = []
-
-    try:
-        voice_channel = ctx.author.voice.channel
-
-        # Connexion
-        if ctx.voice_client is None:
-            await voice_channel.connect()
-            await ctx.send(f"✅ **Connecté à {voice_channel.name}**")
-        elif ctx.voice_client.channel != voice_channel:
-            await ctx.voice_client.move_to(voice_channel)
-
-        await ctx.send(f"🔍 Recherche : `{search}`")
-
-        YDL_OPTIONS = {
-            'format': 'bestaudio/best',
-            'noplaylist': True,
-            'quiet': True,
-            'default_search': 'ytsearch',
-        }
-
-        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-            info = ydl.extract_info(search, download=False)
-            if 'entries' in info:
-                info = info['entries'][0]
-            url = info['url']
-            title = info.get('title', search)
-
-        queue[guild_id].append({'url': url, 'title': title})
-
-        if not ctx.voice_client.is_playing():
-            await play_next(ctx)
-
-        await ctx.send(f"✅ **Ajouté :** {title}")
-
-    except Exception as e:
-        await ctx.send(f"❌ Erreur : {str(e)[:200]}")
-
-async def play_next(ctx):
-    guild_id = ctx.guild.id
-    vc = ctx.voice_client
-
-    if not queue.get(guild_id):
-        return
-
-    song = queue[guild_id].pop(0)
-
-    try:
-        FFMPEG_OPTIONS = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn'
-        }
-        vc.play(discord.FFmpegPCMAudio(song['url'], **FFMPEG_OPTIONS))
-        await ctx.send(f"▶️ **En lecture :** {song['title']}")
-
-        while vc.is_playing():
-            await asyncio.sleep(2)
-
-        await play_next(ctx)
-
-    except:
-        await play_next(ctx)
-
-@bot.command()
-async def skip(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("⏭️ Musique skipée")
-    else:
-        await ctx.send("Rien en lecture.")
-
-@bot.command()
-async def stop(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        if ctx.guild.id in queue:
-            queue[ctx.guild.id] = []
-        await ctx.send("⏹️ Arrêt total.")
-    else:
-        await ctx.send("Pas en vocal.")
-
-@bot.command()
-async def queue(ctx):
-    if ctx.guild.id not in queue or not queue[ctx.guild.id]:
-        return await ctx.send("La file est vide.")
-    q = "\n".join([f"{i+1}. {s['title']}" for i, s in enumerate(queue[ctx.guild.id])])
-    await ctx.send(f"**File d'attente :**\n{q}")
 # ================= AUTRES =================
 @bot.command()
 async def memberinfo(ctx, member: discord.Member = None):
