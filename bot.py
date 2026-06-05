@@ -25,13 +25,11 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
-
     levels[message.author.id]["xp"] += random.randint(5, 15)
     if levels[message.author.id]["xp"] >= levels[message.author.id]["level"] * 100:
         levels[message.author.id]["level"] += 1
         levels[message.author.id]["xp"] = 0
         await message.channel.send(f"🎉 {message.author.mention} est passé au niveau **{levels[message.author.id]['level']}** !")
-
     await bot.process_commands(message)
 
 @bot.event
@@ -42,7 +40,6 @@ async def on_interaction(interaction: discord.Interaction):
 # ================= MODAL =================
 class RedeemModal(discord.ui.Modal, title="Redeem Delta Key"):
     key_input = discord.ui.TextInput(label="Ta clé Delta", placeholder="DELTA-XXXXXXXXXXXXXXXXXXXX", required=True)
-
     async def on_submit(self, interaction: discord.Interaction):
         key = self.key_input.value.strip()
         if key in keys:
@@ -134,7 +131,7 @@ async def kick(ctx, member: discord.Member, *, reason="Aucune"):
 @commands.has_permissions(administrator=True)
 async def warn(ctx, member: discord.Member, *, reason="Aucune raison"):
     warns[member.id].append({"reason": reason, "time": str(datetime.now())})
-    
+   
     try:
         embed = discord.Embed(title="⚠️ Tu as reçu un Warn", color=0xff0000)
         embed.add_field(name="Serveur", value=ctx.guild.name, inline=False)
@@ -144,7 +141,7 @@ async def warn(ctx, member: discord.Member, *, reason="Aucune raison"):
         await member.send(embed=embed)
     except:
         await ctx.send(f"{member.mention} n'a pas pu recevoir le DM (DM fermés).", delete_after=5)
-    
+   
     await ctx.send(f"{member} a reçu un warn ({len(warns[member.id])}).")
 
 @bot.command()
@@ -170,15 +167,14 @@ async def unlock(ctx):
 @bot.command()
 async def play(ctx, *, url: str):
     if not ctx.author.voice:
-        return await ctx.send("❌ Tu dois être en vocal pour utiliser cette commande.")
-    
+        return await ctx.send("❌ Tu dois être dans un salon vocal.")
     try:
         voice_channel = ctx.author.voice.channel
         vc = await voice_channel.connect()
-        await ctx.send(f"🎵 Connexion à {voice_channel.name}...")
-        # Note : Pour que la musique marche vraiment, installe yt-dlp + ffmpeg sur Railway
-        await ctx.send(f"▶️ Lecture de : {url}\n*(Fonctionnalité basique - yt-dlp requis pour full support)*")
-        # Le vrai playback nécessite plus de setup (FFmpeg + yt-dlp)
+        await ctx.send(f"✅ Connecté à **{voice_channel.name}** et prêt à jouer.")
+        # Pour l'instant c'est basique (juste connexion)
+        # Pour que ça joue vraiment des musiques YouTube/Spotify, il faut yt-dlp + ffmpeg
+        await ctx.send(f"🎵 Lien reçu : {url}\n*(Lecture réelle nécessite plus de setup)*")
     except Exception as e:
         await ctx.send(f"❌ Erreur : {e}")
 
