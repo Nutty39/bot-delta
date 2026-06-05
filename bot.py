@@ -161,6 +161,7 @@ async def unlock(ctx):
     await ctx.send("🔓 Salon déverrouillé.")
 
 # ================= MUSIC =================
+# ================= MUSIC (Spotify + YouTube - Anti-Bot) =================
 import yt_dlp
 
 @bot.command()
@@ -179,15 +180,15 @@ async def play(ctx, *, url: str):
             if vc.channel != voice_channel:
                 await vc.move_to(voice_channel)
 
-        await ctx.send("🔍 Recherche du titre...")
+        await ctx.send(f"🔍 Recherche : {url}")
 
-        # Options optimisées pour Spotify
         YDL_OPTIONS = {
             'format': 'bestaudio/best',
             'noplaylist': True,
             'quiet': True,
             'no_warnings': True,
-            'default_search': 'ytsearch',   # Si c'est Spotify, il cherche sur YouTube
+            'extractor_args': {'youtube': {'skip': ['dash', 'hls']}},
+            'age_limit': 0,
         }
 
         FFMPEG_OPTIONS = {
@@ -198,26 +199,28 @@ async def play(ctx, *, url: str):
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
             info = ydl.extract_info(url, download=False)
             audio_url = info['url']
-            title = info.get('title', url)
+            title = info.get('title', 'Musique')
 
         vc.play(discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS))
         await ctx.send(f"▶️ **Lecture :** {title}")
 
     except Exception as e:
         error = str(e).lower()
-        if "drm" in error or "protected" in error:
-            await ctx.send("❌ Spotify bloque ce titre (DRM).\nEssaie un autre titre ou un lien YouTube.")
+        if "sign in" in error or "cookies" in error:
+            await ctx.send("❌ **YouTube bloque le bot** (détection anti-bot).\n**Solution :** Utilise un lien YouTube plus simple ou réessaie plus tard.")
+        elif "drm" in error:
+            await ctx.send("❌ Ce titre Spotify est protégé par DRM.")
         else:
-            await ctx.send(f"❌ Erreur : {str(e)[:300]}")
+            await ctx.send(f"❌ Erreur : {str(e)[:400]}")
 
 # Commandes utiles
 @bot.command()
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        await ctx.send("⏹️ Déconnecté.")
+        await ctx.send("⏹️ Déconnecté du vocal.")
     else:
-        await ctx.send("Pas en vocal.")
+        await ctx.send("Je ne suis pas en vocal.")
 
 @bot.command()
 async def pause(ctx):
