@@ -162,107 +162,57 @@ async def unlock(ctx):
 
 # ================= MUSIC (Recherche par Titre) =================
 import yt_dlp
-import asyncio
-
-queue = {}
 
 @bot.command()
 async def play(ctx, *, search: str):
     if not ctx.author.voice:
         return await ctx.send("❌ Tu dois être dans un salon vocal.")
 
-    voice_channel = ctx.author.voice.channel
-    guild_id = ctx.guild.id
-
-    if guild_id not in queue:
-        queue[guild_id] = []
-
     try:
-        # Connexion
+        voice_channel = ctx.author.voice.channel
+
         if ctx.voice_client is None:
-            vc = await voice_channel.connect()
+            await voice_channel.connect()
             await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
         else:
-            vc = ctx.voice_client
-            if vc.channel != voice_channel:
-                await vc.move_to(voice_channel)
+            if ctx.voice_client.channel != voice_channel:
+                await ctx.voice_client.move_to(voice_channel)
 
         await ctx.send(f"🔍 Recherche : **{search}**")
 
+        # Options ultra simples
         YDL_OPTIONS = {
             'format': 'bestaudio/best',
-            'noplaylist': False,
+            'noplaylist': True,
             'quiet': True,
             'default_search': 'ytsearch',
         }
 
+        FFMPEG_OPTIONS = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn'
+        }
+
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
             info = ydl.extract_info(search, download=False)
+            if 'entries' in info:
+                info = info['entries'][0]
+            url = info['url']
+            title = info.get('title', search)
 
-        if 'entries' in info:  # Playlist ou recherche
-            songs = info['entries']
-        else:
-            songs = [info]
-
-        for song in songs[:5]:  # max 5 par recherche
-            queue[guild_id].append({
-                'url': song['url'],
-                'title': song.get('title', search),
-                'requester': ctx.author
-            })
-
-        await ctx.send(f"✅ Ajouté à la file : **{songs[0].get('title', search)}**")
-
-        if not vc.is_playing():
-            await play_next(ctx)
+        ctx.voice_client.play(discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS))
+        await ctx.send(f"▶️ **Lecture :** {title}")
 
     except Exception as e:
-        await ctx.send(f"❌ Erreur : {str(e)[:300]}")
-
-async def play_next(ctx):
-    guild_id = ctx.guild.id
-    vc = ctx.voice_client
-
-    if guild_id not in queue or not queue[guild_id]:
-        return await ctx.send("File d'attente vide.")
-
-    song = queue[guild_id].pop(0)
-    try:
-        FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
-        vc.play(discord.FFmpegPCMAudio(song['url'], **FFMPEG_OPTIONS))
-        await ctx.send(f"▶️ **Lecture :** {song['title']}")
-        
-        while vc.is_playing():
-            await asyncio.sleep(1)
-        await play_next(ctx)
-
-    except Exception:
-        await play_next(ctx)
-
-@bot.command()
-async def skip(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("⏭️ Musique skipée.")
-    else:
-        await ctx.send("Rien en cours.")
+        await ctx.send(f"❌ Ça marche pas encore.\nEssaie un titre très connu comme :\n`!play perfect ed sheeran` ou `!play shape of you`")
 
 @bot.command()
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        queue[ctx.guild.id] = []
-        await ctx.send("⏹️ Arrêt et déconnexion.")
+        await ctx.send("⏹️ Déconnecté.")
     else:
         await ctx.send("Pas en vocal.")
-
-@bot.command()
-async def queue(ctx):
-    guild_id = ctx.guild.id
-    if guild_id not in queue or not queue[guild_id]:
-        return await ctx.send("La file est vide.")
-    q = "\n".join([f"{i+1}. {s['title']}" for i, s in enumerate(queue[guild_id])])
-    await ctx.send(f"**File d'attente :**\n{q}")
 # ================= AUTRES =================
 @bot.command()
 async def memberinfo(ctx, member: discord.Member = None):
