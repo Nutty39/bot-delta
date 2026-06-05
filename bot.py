@@ -161,6 +161,8 @@ async def unlock(ctx):
     await ctx.send("🔓 Salon déverrouillé.")
 
 # ================= MUSIC =================
+import yt_dlp
+
 @bot.command()
 async def play(ctx, *, url: str):
     if not ctx.author.voice:
@@ -168,17 +170,39 @@ async def play(ctx, *, url: str):
 
     try:
         voice_channel = ctx.author.voice.channel
+
+        # Connexion au vocal
         if ctx.voice_client is None:
-            await voice_channel.connect()
+            vc = await voice_channel.connect()
             await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
         else:
-            if ctx.voice_client.channel != voice_channel:
-                await ctx.voice_client.move_to(voice_channel)
-        
-        await ctx.send(f"🎵 Lien reçu : {url}")
-        await ctx.send("⚠️ **Lecture de musique impossible pour le moment** sur Railway (yt-dlp + ffmpeg manquants).")
+            vc = ctx.voice_client
+            if vc.channel != voice_channel:
+                await vc.move_to(voice_channel)
+
+        await ctx.send(f"🎵 Recherche : {url}")
+
+        # Options yt-dlp + FFmpeg
+        YDL_OPTIONS = {
+            'format': 'bestaudio/best',
+            'noplaylist': True,
+            'quiet': True,
+        }
+
+        FFMPEG_OPTIONS = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn'
+        }
+
+        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+            info = ydl.extract_info(url, download=False)
+            url2 = info['url']
+
+        vc.play(discord.FFmpegPCMAudio(url2, **FFMPEG_OPTIONS))
+        await ctx.send(f"▶️ **Lecture en cours :** {info.get('title', url)}")
+
     except Exception as e:
-        await ctx.send(f"❌ Erreur : {e}")
+        await ctx.send(f"❌ Erreur lecture : {str(e)[:300]}")
 
 # ================= AUTRES =================
 @bot.command()
