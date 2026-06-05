@@ -131,17 +131,14 @@ async def kick(ctx, member: discord.Member, *, reason="Aucune"):
 @commands.has_permissions(administrator=True)
 async def warn(ctx, member: discord.Member, *, reason="Aucune raison"):
     warns[member.id].append({"reason": reason, "time": str(datetime.now())})
-   
     try:
         embed = discord.Embed(title="⚠️ Tu as reçu un Warn", color=0xff0000)
         embed.add_field(name="Serveur", value=ctx.guild.name, inline=False)
         embed.add_field(name="Raison", value=reason, inline=False)
         embed.add_field(name="Nombre total de warns", value=len(warns[member.id]), inline=False)
-        embed.set_footer(text="Delta Executor")
         await member.send(embed=embed)
     except:
-        await ctx.send(f"{member.mention} n'a pas pu recevoir le DM (DM fermés).", delete_after=5)
-   
+        pass
     await ctx.send(f"{member} a reçu un warn ({len(warns[member.id])}).")
 
 @bot.command()
@@ -171,19 +168,15 @@ async def play(ctx, *, url: str):
 
     try:
         voice_channel = ctx.author.voice.channel
-        
         if ctx.voice_client is None:
             await voice_channel.connect()
             await ctx.send(f"✅ Connecté à **{voice_channel.name}**")
         else:
             if ctx.voice_client.channel != voice_channel:
                 await ctx.voice_client.move_to(voice_channel)
-                await ctx.send(f"✅ Déplacé vers **{voice_channel.name}**")
-
+        
         await ctx.send(f"🎵 Lien reçu : {url}")
-        await ctx.send("⚠️ **Impossible de jouer la musique pour le moment.**\n")
-        await ctx.send("**Raison :** yt-dlp + ffmpeg ne sont pas installés sur Railway.")
-
+        await ctx.send("⚠️ **Lecture de musique impossible pour le moment** sur Railway (yt-dlp + ffmpeg manquants).")
     except Exception as e:
         await ctx.send(f"❌ Erreur : {e}")
 
