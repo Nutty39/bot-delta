@@ -162,10 +162,11 @@ async def unlock(ctx):
 
 # ================= MUSIC =================
 # ================= MUSIC (Spotify + YouTube - Anti-Bot) =================
+# ================= MUSIC (Recherche par Titre) =================
 import yt_dlp
 
 @bot.command()
-async def play(ctx, *, url: str):
+async def play(ctx, *, search: str):
     if not ctx.author.voice:
         return await ctx.send("❌ Tu dois être dans un salon vocal.")
 
@@ -180,15 +181,13 @@ async def play(ctx, *, url: str):
             if vc.channel != voice_channel:
                 await vc.move_to(voice_channel)
 
-        await ctx.send(f"🔍 Recherche : {url}")
+        await ctx.send(f"🔍 Recherche : **{search}**")
 
         YDL_OPTIONS = {
             'format': 'bestaudio/best',
             'noplaylist': True,
             'quiet': True,
-            'no_warnings': True,
-            'extractor_args': {'youtube': {'skip': ['dash', 'hls']}},
-            'age_limit': 0,
+            'default_search': 'ytsearch',   # Recherche automatique sur YouTube
         }
 
         FFMPEG_OPTIONS = {
@@ -197,21 +196,17 @@ async def play(ctx, *, url: str):
         }
 
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-            info = ydl.extract_info(url, download=False)
+            info = ydl.extract_info(search, download=False)
+            if 'entries' in info:  # Si c'est une playlist
+                info = info['entries'][0]
             audio_url = info['url']
-            title = info.get('title', 'Musique')
+            title = info.get('title', search)
 
         vc.play(discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS))
         await ctx.send(f"▶️ **Lecture :** {title}")
 
     except Exception as e:
-        error = str(e).lower()
-        if "sign in" in error or "cookies" in error:
-            await ctx.send("❌ **YouTube bloque le bot** (détection anti-bot).\n**Solution :** Utilise un lien YouTube plus simple ou réessaie plus tard.")
-        elif "drm" in error:
-            await ctx.send("❌ Ce titre Spotify est protégé par DRM.")
-        else:
-            await ctx.send(f"❌ Erreur : {str(e)[:400]}")
+        await ctx.send(f"❌ Erreur : Impossible de trouver ou lire **{search}**\n{str(e)[:300]}")
 
 # Commandes utiles
 @bot.command()
