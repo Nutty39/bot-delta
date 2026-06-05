@@ -18,10 +18,10 @@ keys = {}
 
 @bot.event
 async def on_ready():
-    print(f"✅ Delta Executor Bot → Connecté et prêt")
+    print(f"✅ Delta Executor Bot → Connecté")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Delta Executor v1.2"))
 
-# ================= MODAL =================
+# ================= MODAL REDEEM =================
 class RedeemModal(discord.ui.Modal, title="Redeem Delta Key"):
     key_input = discord.ui.TextInput(label="Ta clé Delta", placeholder="DELTA-XXXXXXXXXXXXXXXXXXXX", required=True)
 
@@ -52,62 +52,34 @@ async def fonction(ctx):
 async def help(ctx):
     await ctx.invoke(bot.get_command('fonction'))
 
-# ================= MODÉRATION (CORRIGÉ) =================
+# ================= MODÉRATION (KICK FIXÉ) =================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def kick(ctx, member: discord.Member, *, reason="Aucune raison"):
+    if member == ctx.author:
+        await ctx.send("❌ Tu ne peux pas te kick toi-même.")
+        return
+    if member.top_role >= ctx.author.top_role:
+        await ctx.send("❌ Tu ne peux pas kick quelqu'un avec un rôle plus haut que toi.")
+        return
+    try:
+        await member.kick(reason=reason)
+        await ctx.send(f"✅ **{member}** a été kick.\nRaison : {reason}")
+    except discord.Forbidden:
+        await ctx.send("❌ Je n'ai pas la permission de kicker ce membre.")
+    except Exception as e:
+        await ctx.send(f"❌ Erreur : {e}")
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def ban(ctx, member: discord.Member, *, reason="Aucune raison"):
     await member.ban(reason=reason)
-    await ctx.send(f"✅ {member} a été **ban**.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def kick(ctx, member: discord.Member, *, reason="Aucune raison"):
-    await member.kick(reason=reason)
-    await ctx.send(f"✅ {member} a été **kick**.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def unban(ctx, user_id: int):
-    try:
-        user = await bot.fetch_user(user_id)
-        await ctx.guild.unban(user)
-        await ctx.send(f"✅ {user} a été **unban**.")
-    except:
-        await ctx.send("❌ ID invalide.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def warn(ctx, member: discord.Member, *, reason="Aucune"):
-    warns[member.id].append(reason)
-    await ctx.send(f"⚠️ {member.mention} warn ({len(warns[member.id])}/3)")
+    await ctx.send(f"✅ {member} a été ban.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def mute(ctx, member: discord.Member, minutes: int = 10):
     await ctx.send(f"🔇 {member} muté pour {minutes} minutes.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def unmute(ctx, member: discord.Member):
-    await ctx.send(f"🔊 {member} unmute.")
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def slowmode(ctx, seconds: int):
-    await ctx.channel.edit(slowmode_delay=seconds)
-    await ctx.send(f"Slowmode : {seconds}s")
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def lock(ctx):
-    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
-    await ctx.send("🔒 Salon verrouillé.")
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def unlock(ctx):
-    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
-    await ctx.send("🔓 Salon déverrouillé.")
 
 # ================= DELTA =================
 @bot.command()
