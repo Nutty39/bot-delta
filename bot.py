@@ -32,7 +32,7 @@ config = load_config()
 
 @bot.event
 async def on_ready():
-    print(f"Bot lancé → {bot.user} - Tout est chargé")
+    print(f"Bot lancé → {bot.user} - Tout est chargé à fond")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="tout niquer"))
     auto_cleanup.start()
 
@@ -64,16 +64,16 @@ async def on_message(message):
 # ================= HELP DÉTAILLÉ =================
 @bot.command()
 async def help(ctx):
-    embed = discord.Embed(title="📜 AIDE COMPLÈTE DU BOT", description="Toutes les commandes :", color=0xff0000)
+    embed = discord.Embed(title="📜 TOUT CE QUE LE BOT SAIT FAIRE", description="Commandes complètes :", color=0xff0000)
     
-    embed.add_field(name="🔧 Basiques", value="`!ping` `!help` `!fonction`", inline=False)
-    embed.add_field(name="🧹 Clear / Purge", value="`!clear nombre` → Supprime X messages\n`!clearall nombre` → Purge plus violent", inline=False)
+    embed.add_field(name="🧹 Clear", value="`!clear nombre` → Supprime X messages\n`!clearall nombre` → Purge plus violent", inline=False)
+    embed.add_field(name="🔥 Nuke", value="`!nuke` → Supprime et recrée le salon actuel", inline=False)
     embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
     embed.add_field(name="💰 Économie", value="`!balance` `!daily` `!pay`", inline=False)
     embed.add_field(name="🎉 Fun", value="`!giveaway` `!fake_nitro` `!ticket` `!reactionrole`", inline=False)
-    embed.add_field(name="🛠️ Modération", value="`!ban` `!unban` `!warn` `!slowmode` `!lock` `!unlock` `!setclean`", inline=False)
-    embed.add_field(name="💥 Destruction", value="`!nuke` `!nukeall` `!webhookspam` `!raidmode`", inline=False)
-    embed.add_field(name="🔍 Divers", value="`!tokeninfo TOKEN`", inline=False)
+    embed.add_field(name="🛠️ Modération", value="`!ban` `!kick` `!unban` `!warn` `!mute` `!unmute` `!slowmode` `!lock` `!unlock` `!setclean`", inline=False)
+    embed.add_field(name="💥 Destruction", value="`!nukeall` `!webhookspam` `!raidmode`", inline=False)
+    embed.add_field(name="🔍 Divers", value="`!tokeninfo TOKEN` `!ping` `!fonction`", inline=False)
     
     await ctx.send(embed=embed)
 
@@ -81,41 +81,97 @@ async def help(ctx):
 async def fonction(ctx):
     await ctx.invoke(bot.get_command('help'))
 
-# ================= CLEAR COMMANDS =================
+# ================= NUKE FIXÉ =================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def nuke(ctx, channel: discord.TextChannel = None):
+    channel = channel or ctx.channel
+    try:
+        new_channel = await channel.clone(reason="Nuke command")
+        await channel.delete(reason="Nuke command")
+        await new_channel.send("**Salon nuke effectué avec succès.** 🔥")
+        await ctx.send(f"Salon {channel.name} nuké et recréé.", delete_after=5)
+    except Exception as e:
+        await ctx.send(f"Erreur pendant le nuke : {e}")
+
+# ================= CLEAR =================
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def clear(ctx, amount: int = 10):
-    if amount > 100:
-        amount = 100
+    if amount > 100: amount = 100
     await ctx.channel.purge(limit=amount + 1)
-    await ctx.send(f"**{amount}** messages supprimés.", delete_after=4)
+    await ctx.send(f"{amount} messages supprimés.", delete_after=4)
 
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def clearall(ctx, amount: int = 50):
-    if amount > 200:
-        amount = 200
+    if amount > 200: amount = 200
     await ctx.channel.purge(limit=amount + 1)
-    await ctx.send(f"**{amount}** messages virés violemment.", delete_after=4)
+    await ctx.send(f"{amount} messages virés.", delete_after=4)
 
-# ================= TOKENINFO =================
+# ================= MODÉRATION =================
 @bot.command()
-async def tokeninfo(ctx, token: str):
-    if len(token) < 50:
-        await ctx.send("Token trop court.")
-        return
-    try:
-        headers = {"Authorization": token}
-        async with bot.http._HTTPClient__session.get("https://discord.com/api/v9/users/@me", headers=headers) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                await ctx.send(f"✅ Token valide → {data.get('username')}#{data.get('discriminator')}")
-            else:
-                await ctx.send("❌ Token invalide.")
-    except:
-        await ctx.send("Erreur pendant la vérif.")
+@commands.has_permissions(administrator=True)
+async def ban(ctx, member: discord.Member, *, reason="Aucune"):
+    await member.ban(reason=reason)
+    await ctx.send(f"{member} a été ban.")
 
-# ================= AUTRES COMMANDES (essentielles) =================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def kick(ctx, member: discord.Member, *, reason="Aucune"):
+    await member.kick(reason=reason)
+    await ctx.send(f"{member} a été kick.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def unban(ctx, user_id: int):
+    try:
+        user = await bot.fetch_user(user_id)
+        await ctx.guild.unban(user)
+        await ctx.send(f"{user} a été unbanni.")
+    except:
+        await ctx.send("ID invalide.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def mute(ctx, member: discord.Member, minutes: int = 10):
+    role = discord.utils.get(ctx.guild.roles, name="Muted")
+    if not role:
+        role = await ctx.guild.create_role(name="Muted")
+        for ch in ctx.guild.channels:
+            await ch.set_permissions(role, send_messages=False, speak=False)
+    await member.add_roles(role)
+    await ctx.send(f"{member} muté pour {minutes} minutes.")
+    await asyncio.sleep(minutes * 60)
+    await member.remove_roles(role)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def unmute(ctx, member: discord.Member):
+    role = discord.utils.get(ctx.guild.roles, name="Muted")
+    if role:
+        await member.remove_roles(role)
+        await ctx.send(f"{member} unmute.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def slowmode(ctx, seconds: int):
+    await ctx.channel.edit(slowmode_delay=seconds)
+    await ctx.send(f"Slowmode mis à {seconds} secondes.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def lock(ctx):
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
+    await ctx.send("Salon verrouillé.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def unlock(ctx):
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
+    await ctx.send("Salon déverrouillé.")
+
+# ================= AUTRES =================
 @bot.command()
 async def ping(ctx):
     await ctx.send(f"Pong → {round(bot.latency * 1000)}ms")
@@ -152,23 +208,23 @@ async def nukeall(ctx):
 async def setclean(ctx, channel: discord.TextChannel, seconds: int):
     config[str(channel.id)] = {"delete_after": seconds}
     save_config()
-    await ctx.send(f"Auto clean {seconds}s sur {channel.mention}")
+    await ctx.send(f"Auto clean {seconds}s activé sur {channel.mention}")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="Aucune"):
-    await member.ban(reason=reason)
-    await ctx.send(f"{member} ban.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def unban(ctx, user_id: int):
+async def tokeninfo(ctx, token: str):
+    if len(token) < 50:
+        await ctx.send("Token trop court.")
+        return
     try:
-        user = await bot.fetch_user(user_id)
-        await ctx.guild.unban(user)
-        await ctx.send(f"{user} unbanni.")
+        headers = {"Authorization": token}
+        async with bot.http._HTTPClient__session.get("https://discord.com/api/v9/users/@me", headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                await ctx.send(f"✅ Token valide → {data.get('username')}#{data.get('discriminator')}")
+            else:
+                await ctx.send("❌ Token invalide.")
     except:
-        await ctx.send("ID invalide.")
+        await ctx.send("Erreur pendant la vérification.")
 
 # Lancement
 token = os.getenv("TOKEN")
