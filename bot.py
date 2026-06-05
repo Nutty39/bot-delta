@@ -18,12 +18,12 @@ keys = {}
 
 @bot.event
 async def on_ready():
-    print(f"✅ Delta Executor Bot → Tout est chargé")
+    print(f"✅ Delta Executor Bot → Connecté et prêt")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Delta Executor v1.2"))
 
-# ================= MODAL REDEEM =================
+# ================= MODAL =================
 class RedeemModal(discord.ui.Modal, title="Redeem Delta Key"):
-    key_input = discord.ui.TextInput(label="Entre ta clé Delta", placeholder="DELTA-XXXXXXXXXXXXXXXXXXXX", required=True)
+    key_input = discord.ui.TextInput(label="Ta clé Delta", placeholder="DELTA-XXXXXXXXXXXXXXXXXXXX", required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
         key = self.key_input.value.strip()
@@ -31,16 +31,16 @@ class RedeemModal(discord.ui.Modal, title="Redeem Delta Key"):
             role = discord.utils.get(interaction.guild.roles, name="Delta Client")
             if role:
                 await interaction.user.add_roles(role)
-            await interaction.response.send_message("✅ Clé validée ! Tu es maintenant **Delta Client**.", ephemeral=True)
+            await interaction.response.send_message("✅ Clé validée !", ephemeral=True)
             del keys[key]
         else:
-            await interaction.response.send_message("❌ Clé invalide ou déjà utilisée.", ephemeral=True)
+            await interaction.response.send_message("❌ Clé invalide.", ephemeral=True)
 
 # ================= HELP =================
 @bot.command()
 async def fonction(ctx):
     embed = discord.Embed(title="🚀 TOUTES LES COMMANDES DELTA", color=0x00ffff)
-    embed.add_field(name="📢 Delta", value="`!annonce` `!key` `!redeemkey` `!tokeninfo` `!status` `!delta` `!scripts` `!changelog` `!buy`", inline=False)
+    embed.add_field(name="📢 Delta", value="`!annonce` `!key` `!redeemkey` `!tokeninfo` `!status` `!delta` `!scripts`", inline=False)
     embed.add_field(name="🧹 Clear", value="`!clear <nombre>` `!clearall <nombre>`", inline=False)
     embed.add_field(name="🔥 Nuke", value="`!nuke` `!nukeall`", inline=False)
     embed.add_field(name="👤 Infos", value="`!memberinfo` `!avatar` `!level` `!leaderboard`", inline=False)
@@ -52,12 +52,75 @@ async def fonction(ctx):
 async def help(ctx):
     await ctx.invoke(bot.get_command('fonction'))
 
-# ================= DELTA COMMANDS (TOUT GARDÉ) =================
+# ================= MODÉRATION (CORRIGÉ) =================
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def annonce(ctx, *, message):
-    embed = discord.Embed(title="📢 Delta Executor", description=message, color=0x00ffff)
-    await ctx.send("@everyone", embed=embed)
+async def ban(ctx, member: discord.Member, *, reason="Aucune raison"):
+    await member.ban(reason=reason)
+    await ctx.send(f"✅ {member} a été **ban**.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def kick(ctx, member: discord.Member, *, reason="Aucune raison"):
+    await member.kick(reason=reason)
+    await ctx.send(f"✅ {member} a été **kick**.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def unban(ctx, user_id: int):
+    try:
+        user = await bot.fetch_user(user_id)
+        await ctx.guild.unban(user)
+        await ctx.send(f"✅ {user} a été **unban**.")
+    except:
+        await ctx.send("❌ ID invalide.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def warn(ctx, member: discord.Member, *, reason="Aucune"):
+    warns[member.id].append(reason)
+    await ctx.send(f"⚠️ {member.mention} warn ({len(warns[member.id])}/3)")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def mute(ctx, member: discord.Member, minutes: int = 10):
+    await ctx.send(f"🔇 {member} muté pour {minutes} minutes.")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def unmute(ctx, member: discord.Member):
+    await ctx.send(f"🔊 {member} unmute.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def slowmode(ctx, seconds: int):
+    await ctx.channel.edit(slowmode_delay=seconds)
+    await ctx.send(f"Slowmode : {seconds}s")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def lock(ctx):
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
+    await ctx.send("🔒 Salon verrouillé.")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def unlock(ctx):
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
+    await ctx.send("🔓 Salon déverrouillé.")
+
+# ================= DELTA =================
+@bot.command()
+async def redeemkey(ctx):
+    embed = discord.Embed(title="Redeem Key", description="Clique pour entrer ta clé", color=0x00ffff)
+    view = discord.ui.View(timeout=None)
+    view.add_item(discord.ui.Button(label="Entrer Clé", style=discord.ButtonStyle.green, custom_id="redeem_modal"))
+    await ctx.send(embed=embed, view=view)
+
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    if interaction.data.get("custom_id") == "redeem_modal":
+        await interaction.response.send_modal(RedeemModal())
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -65,60 +128,13 @@ async def key(ctx, member: discord.Member = None):
     member = member or ctx.author
     key = "DELTA-" + "".join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ0123456789", k=20))
     keys[key] = member.id
-    await ctx.send(f"{member.mention} Clé générée :\n`{key}`")
-
-@bot.command()
-async def redeemkey(ctx):
-    embed = discord.Embed(title="Redeem Delta Key", description="Clique ci-dessous pour entrer ta clé", color=0x00ffff)
-    view = discord.ui.View(timeout=None)
-    view.add_item(discord.ui.Button(label="Entrer Clé", style=discord.ButtonStyle.green, custom_id="redeem_modal"))
-    await ctx.send(embed=embed, view=view)
-
-@bot.command()
-async def tokeninfo(ctx, *, token: str):
-    await ctx.send("🔍 Vérification...\n✅ Token semble valide (simulation).")
-
-@bot.command()
-async def status(ctx):
-    embed = discord.Embed(title="Delta Executor Status", color=0x00ff00)
-    embed.add_field(name="Version", value="1.2", inline=True)
-    embed.add_field(name="Statut", value="Undetected", inline=True)
-    await ctx.send(embed=embed)
+    await ctx.send(f"{member.mention} Clé : `{key}`")
 
 @bot.command()
 async def delta(ctx):
-    embed = discord.Embed(title="Delta Executor PC", color=0x00ffff)
-    embed.add_field(name="Statut", value="✅ Undetected 2026", inline=False)
-    await ctx.send(embed=embed)
+    await ctx.send("**Delta Executor** - Meilleur cheat Roblox Undetected")
 
-@bot.command()
-async def scripts(ctx):
-    await ctx.send("**Scripts disponibles :** Infinite Yield, Fly Script, God Mode, Aimbot, ESP, Speed, Auto Farm...")
-
-# ================= INTERACTION (MODAL) =================
-@bot.event
-async def on_interaction(interaction: discord.Interaction):
-    if interaction.data.get("custom_id") == "redeem_modal":
-        await interaction.response.send_modal(RedeemModal())
-
-# ================= MODÉRATION & AUTRES (TOUT GARDÉ) =================
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="Aucune"):
-    await member.ban(reason=reason)
-    await ctx.send(f"{member} a été ban.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def kick(ctx, member: discord.Member, *, reason="Aucune"):
-    await member.kick(reason=reason)
-    await ctx.send(f"{member} a été kick.")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def mute(ctx, member: discord.Member, minutes: int = 10):
-    await ctx.send(f"{member} muté pour {minutes} minutes.")
-
+# Clear & Nuke
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def clear(ctx, amount: int = 10):
