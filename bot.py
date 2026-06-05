@@ -180,12 +180,12 @@ async def play(ctx, *, search: str):
 
         await ctx.send(f"🔍 Recherche : **{search}**")
 
-        # Options ultra simples
         YDL_OPTIONS = {
             'format': 'bestaudio/best',
             'noplaylist': True,
             'quiet': True,
             'default_search': 'ytsearch',
+            'extractor_args': {'youtube': {'skip': ['dash', 'hls']}},
         }
 
         FFMPEG_OPTIONS = {
@@ -204,7 +204,7 @@ async def play(ctx, *, search: str):
         await ctx.send(f"▶️ **Lecture :** {title}")
 
     except Exception as e:
-        await ctx.send(f"❌ Ça marche pas encore.\nEssaie un titre très connu comme :\n`!play perfect ed sheeran` ou `!play shape of you`")
+        await ctx.send(f"❌ Toujours bloqué par YouTube.\n\n**Solution temporaire :**\nUtilise un lien YouTube **direct** (pas de recherche).")
 
 @bot.command()
 async def stop(ctx):
